@@ -60,7 +60,7 @@ Example `settings.json`:
 }
 ```
 
-See [docs/configuration.md](docs/configuration.md) for environment-specific setup examples.
+See the **Configuration** section of `package.json` (`contributes.configuration`) for all available settings.
 
 ## Credentials
 
@@ -78,7 +78,7 @@ JIRA_PAT=your_jira_personal_access_token_here
 BITBUCKET_PAT=your_bitbucket_personal_access_token_here
 ```
 
-After a successful import, the values are copied into SecretStorage and the file can be deleted. Full details are in [docs/credentials.md](docs/credentials.md).
+After a successful import, the values are copied into SecretStorage and the `.devnexus-env` file can be deleted.
 
 ## Jira Commands
 
@@ -96,7 +96,7 @@ Example prompts you can use with `@nexus`:
 - `@nexus list subtasks under PROJ-123`
 - `@nexus assign PROJ-123 to me`
 
-See [docs/jira-tools.md](docs/jira-tools.md) for every Jira tool schema and usage pattern.
+All 11 Jira tools are declared in `package.json` under `contributes.languageModelTools` with their input schemas.
 
 ## Bitbucket Commands
 
@@ -116,7 +116,7 @@ Example prompts you can use with `@nexus`:
 - `@nexus mark PR 42 as needs work`
 - `@nexus create branch feature/proj-123-api-cleanup from develop`
 
-See [docs/bitbucket-tools.md](docs/bitbucket-tools.md) for the full Bitbucket reference.
+All 14 Bitbucket tools are declared in `package.json` under `contributes.languageModelTools` with their input schemas.
 
 ## Troubleshooting
 
@@ -139,7 +139,7 @@ If you rely on default project or repo values, also set `devnexus.jira.defaultPr
 
 ## Contributing
 
-Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), review the tool conventions, and keep all examples generic.
+Issues and pull requests are welcome at https://github.com/rakshithbn-proj/devnexus. Please keep all examples generic — no project-specific endpoints, keys, or labels.
 
 ## License
 
