@@ -28,7 +28,13 @@ DevNexus is a VS Code extension that brings Jira Server and Bitbucket Server ope
 
 ## Quick Start
 
-1. **Install DevNexus** from the VS Code Marketplace.
+> **Note:** DevNexus is not yet on the VS Code Marketplace. For now, install via the latest [GitHub Release](https://github.com/rakshithbn-proj/devnexus/releases) or build from source. See [BUILD.md](BUILD.md) for full instructions.
+
+1. **Install** — download the latest `.vsix` from [Releases](https://github.com/rakshithbn-proj/devnexus/releases) and run:
+   ```bash
+   code --install-extension devnexus-1.0.0.vsix
+   ```
+   (or build from source — see [BUILD.md](BUILD.md))
 2. **Configure settings** for your Jira and Bitbucket server URLs in VS Code Settings.
 3. **Set credentials** using the `DevNexus: Set Jira Credentials` and `DevNexus: Set Bitbucket Token` commands, or create a `.devnexus-env` bootstrap file.
 4. Open **GitHub Copilot Chat** and start with prompts such as:

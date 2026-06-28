@@ -7,3 +7,7 @@ tsconfig.json
 **/*.ts
 **/*.map
 .github/**
+build-and-install.bat
+build-and-install.sh
+BUILD.md
+*.vsix
