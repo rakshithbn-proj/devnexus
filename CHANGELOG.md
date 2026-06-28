@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.1.0] — 2026-06-28
+
+### Added
+- Full feature-parity port: **85 language-model tools** (45 Jira, 40 Bitbucket)
+- Jira: forecast completion dates, due dates, start dates, project versions, sprints, boards, epics, components, watchers, votes, attachments, changelog, clone, bulk move, worklogs, JQL shorthands, structured search
+- Bitbucket: branches, tags, build statuses, file browsing, PR tasks, inline comments, activity, default reviewers, merge checks, compare, commits
+- Shorthand syntax for power users (e.g. `/123/p` → transition `PROJ-123` to In Progress)
+- Cross-tool chaining ("comment on this PR, mark it needs work, and create a Jira subtask") in a single prompt
+
+### Fixed
+- Trailing slashes in `devnexus.jira.baseUrl` and `devnexus.bitbucket.baseUrl` are now stripped in the client constructors, preventing `404 null for uri` from `//rest/api/2/...`
+
+### Changed
+- Generic project placeholders (`PROJ-123`, `e.g. PROJ`) replace previous internal examples
+- All internal label conventions removed from defaults and tool descriptions
+- Configuration defaults stripped of internal project keys — `devnexus.jira.defaultProject`, `devnexus.bitbucket.project`, and `devnexus.bitbucket.repo` are all empty by default
+
 ## [1.0.2] — 2026-06-28
 
 ### Fixed

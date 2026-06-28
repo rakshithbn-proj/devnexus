@@ -11,13 +11,14 @@ DevNexus is a VS Code extension that brings Jira Server and Bitbucket Server ope
 ## Features
 
 - `@nexus` Copilot Chat participant for Jira and Bitbucket workflows
-- 11 Jira tools for issue lookup, creation, search, assignment, comments, links, estimates, and work logging
-- 14 Bitbucket tools for PR triage, review actions, comments, diffs, reviewers, and branch creation
+- **45 Jira tools** for issues, subtasks, search, transitions, assignment, comments, links, estimates, work logs, sprints, boards, epics, versions, components, watchers, votes, attachments, changelog, clone, bulk move, dates (start / due / forecast)
+- **40 Bitbucket tools** for PR triage, review actions, comments, diffs, tasks, reviewers, branches, tags, build statuses, file browsing, compare, commits, merge checks
 - Activity bar views for **My Jira Issues** and **Pull Requests**
+- Cross-tool chaining ("comment on this PR, mark it needs work, and create a Jira subtask") in a single prompt
+- Shorthand syntax for power users (e.g. `/123/p` to move ticket to In Progress)
 - Runtime configuration for any Jira Server and Bitbucket Server instance
 - Secure credential storage in VS Code SecretStorage
 - Optional `.devnexus-env` bootstrap file for first-run setup
-- Multi-step workflow handling such as “comment on this PR, mark it needs work, and create a Jira subtask”
 
 ## Requirements
 
@@ -32,7 +33,7 @@ DevNexus is a VS Code extension that brings Jira Server and Bitbucket Server ope
 
 1. **Install** — download the latest `.vsix` from [Releases](https://github.com/rakshithbn-proj/devnexus/releases) and run:
    ```bash
-   code --install-extension devnexus-1.0.0.vsix
+   code --install-extension devnexus-1.1.0.vsix
    ```
    (or build from source — see [BUILD.md](BUILD.md))
 2. **Configure settings** for your Jira and Bitbucket server URLs in VS Code Settings.
@@ -101,8 +102,15 @@ Example prompts you can use with `@nexus`:
 - `@nexus link PROJ-123 blocks PROJ-456`
 - `@nexus list subtasks under PROJ-123`
 - `@nexus assign PROJ-123 to me`
+- `@nexus set due date on PROJ-123 to next Friday`
+- `@nexus what's the forecast completion date for PROJ-123?`
+- `@nexus show the active sprint for YOUR-PROJECT`
+- `@nexus list epics in YOUR-PROJECT`
+- `@nexus list project versions for YOUR-PROJECT`
+- `@nexus watch PROJ-123`
+- `@nexus show changelog for PROJ-123`
 
-All 11 Jira tools are declared in `package.json` under `contributes.languageModelTools` with their input schemas.
+All 45 Jira tools are declared in `package.json` under `contributes.languageModelTools` with their input schemas.
 
 ## Bitbucket Commands
 
@@ -121,8 +129,16 @@ Example prompts you can use with `@nexus`:
 - `@nexus approve PR 42`
 - `@nexus mark PR 42 as needs work`
 - `@nexus create branch feature/proj-123-api-cleanup from develop`
+- `@nexus list branches in my-repo`
+- `@nexus list tags in my-repo`
+- `@nexus show build status for PR 42`
+- `@nexus browse my-repo at src/`
+- `@nexus get file src/auth/token.ts from my-repo`
+- `@nexus list tasks on PR 42`
+- `@nexus check if PR 42 can merge`
+- `@nexus compare develop with main`
 
-All 14 Bitbucket tools are declared in `package.json` under `contributes.languageModelTools` with their input schemas.
+All 40 Bitbucket tools are declared in `package.json` under `contributes.languageModelTools` with their input schemas.
 
 ## Troubleshooting
 

@@ -16,16 +16,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const auth = new AuthManager(context);
     await auth.initializeContextFlags();
 
+    // ── Client factories ────────────────────────────────────────
+
     async function getJiraClient(): Promise<JiraClient | undefined> {
         if (jiraClient) { return jiraClient; }
         const creds = await auth.getJiraCredentials();
         if (!creds) { return undefined; }
         const config = vscode.workspace.getConfiguration('devnexus.jira');
-        const baseUrl = config.get<string>('baseUrl', '').trim().replace(/\/+$/, '');
-        if (!baseUrl) {
-            void vscode.window.showWarningMessage('DevNexus: Jira URL not configured. Open Settings and set devnexus.jira.baseUrl.');
-            return undefined;
-        }
+        const baseUrl = config.get<string>('baseUrl', '');
         jiraClient = new JiraClient(baseUrl, creds);
         return jiraClient;
     }
@@ -36,25 +34,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         if (!pat) { return undefined; }
         const config = vscode.workspace.getConfiguration('devnexus.bitbucket');
         const bbConfig: BitbucketConfig = {
-            baseUrl: config.get<string>('baseUrl', '').trim().replace(/\/+$/, ''),
-            project: config.get<string>('project', '').trim(),
-            repo: config.get<string>('repo', '').trim() || undefined,
+            baseUrl: config.get<string>('baseUrl', ''),
+            project: config.get<string>('project', ''),
+            repo: config.get<string>('repo', ''),
         };
-        if (!bbConfig.baseUrl) {
-            void vscode.window.showWarningMessage('DevNexus: Bitbucket URL not configured. Open Settings and set devnexus.bitbucket.baseUrl.');
-            return undefined;
-        }
-        if (!bbConfig.project) {
-            void vscode.window.showWarningMessage('DevNexus: Bitbucket project not configured. Open Settings and set devnexus.bitbucket.project.');
-            return undefined;
-        }
         bbClient = new BitbucketClient(bbConfig, pat);
         return bbClient;
     }
 
+    // ── Register tools ──────────────────────────────────────────
+
     registerJiraTools(context, getJiraClient, auth);
     registerBitbucketTools(context, getBBClient);
+
+    // ── Register chat participant ───────────────────────────────
+
     registerChatParticipant(context, auth);
+
+    // ── Tree views ──────────────────────────────────────────────
 
     const jiraTree = new JiraTreeProvider(getJiraClient);
     const bbTree = new BBTreeProvider(getBBClient);
@@ -64,13 +61,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         vscode.window.registerTreeDataProvider('devnexusBBPullRequests', bbTree),
     );
 
+    // ── Commands ────────────────────────────────────────────────
+
     context.subscriptions.push(
         vscode.commands.registerCommand('devnexus.setJiraCredentials', async () => {
             const ok = await auth.setJiraCredentials();
             if (ok) {
-                jiraClient = undefined;
+                jiraClient = undefined; // Reset to pick up new creds
                 jiraTree.refresh();
-                await updateStatusBar();
+                updateStatusBar();
             }
         }),
 
@@ -79,7 +78,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             if (ok) {
                 bbClient = undefined;
                 bbTree.refresh();
-                await updateStatusBar();
+                updateStatusBar();
             }
         }),
 
@@ -92,15 +91,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }),
 
         vscode.commands.registerCommand('devnexus.createEnvFile', () => {
-            void auth.createEnvFile();
+            auth.createEnvFile();
         }),
 
         vscode.commands.registerCommand('devnexus.openInBrowser', (item: JiraTreeItem | BBTreeItem) => {
             if (item.url) {
-                void vscode.env.openExternal(vscode.Uri.parse(item.url));
+                vscode.env.openExternal(vscode.Uri.parse(item.url));
             }
         }),
     );
+
+    // ── Status bar ──────────────────────────────────────────────
 
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
     statusBarItem.command = 'devnexus.setJiraCredentials';
@@ -118,6 +119,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         statusBarItem.show();
     }
 
+    // Listen for config changes
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('devnexus')) {
