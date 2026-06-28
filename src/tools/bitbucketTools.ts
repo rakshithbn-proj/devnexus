@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { BitbucketClient } from '../api/bitbucketClient';
 import { registerToolHandler } from './toolRegistry';
 
+const BB_NOT_READY = 'Bitbucket is not ready. Verify (1) Bitbucket token (SecretStorage or .devnexus-env BITBUCKET_PAT) and (2) devnexus.bitbucket.baseUrl / project / repo in VS Code Settings.';
+
 export function registerBitbucketTools(context: vscode.ExtensionContext, getClient: () => Promise<BitbucketClient | undefined>): void {
 
     function reg<T>(name: string, fn: (input: T) => Promise<string>): void {
@@ -17,7 +19,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── List PRs ────────────────────────────────────────────────
     reg<{ state?: string; filter?: string; limit?: number }>('devnexus_bb_list_prs', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured. Run "DevNexus: Set Bitbucket Token" first.'; }
+        if (!client) { return BB_NOT_READY; }
         let prs;
         if (input.filter === 'mine') {
             prs = await client.getMyPRs(input.limit || 25);
@@ -37,7 +39,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── Get PR ──────────────────────────────────────────────────
     reg<{ prId: number }>('devnexus_bb_get_pr', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured.'; }
+        if (!client) { return BB_NOT_READY; }
         const pr = await client.getPR(input.prId);
         const reviewers = pr.reviewers.map((r: any) => `${r.user.displayName} (${r.status})`).join(', ') || 'none';
         return [
@@ -54,7 +56,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── Create PR ───────────────────────────────────────────────
     reg<{ title: string; description?: string; fromBranch: string; toBranch?: string; reviewers?: string[] }>('devnexus_bb_create_pr', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured.'; }
+        if (!client) { return BB_NOT_READY; }
         const pr = await client.createPR(input);
         const reviewerNames = pr.reviewers.map((r: any) => r.user.displayName).join(', ') || 'none';
         return `Created **PR #${pr.id}** — "${pr.title}"\n${pr.fromRef.displayId} → ${pr.toRef.displayId} | Reviewers: ${reviewerNames}\nURL: ${client.getPRUrl(pr.id)}`;
@@ -63,7 +65,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── Merge PR ────────────────────────────────────────────────
     reg<{ prId: number }>('devnexus_bb_merge_pr', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured.'; }
+        if (!client) { return BB_NOT_READY; }
         const pr = await client.mergePR(input.prId);
         return `Merged **PR #${input.prId}** — "${pr.title}"`;
     });
@@ -71,7 +73,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── Get Changes ─────────────────────────────────────────────
     reg<{ prId: number }>('devnexus_bb_get_changes', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured.'; }
+        if (!client) { return BB_NOT_READY; }
         const changes = await client.getChanges(input.prId);
         const lines = changes.map((c: any) => `- \`${c.type}\` ${c.path.toString}`);
         return `Changed files in PR #${input.prId} (${changes.length}):\n${lines.join('\n')}`;
@@ -80,7 +82,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── Get Diff ────────────────────────────────────────────────
     reg<{ prId: number; filePath: string; contextLines?: number }>('devnexus_bb_get_diff', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured.'; }
+        if (!client) { return BB_NOT_READY; }
         const diff = await client.getDiff(input.prId, input.filePath, input.contextLines || 5);
         return `Diff for \`${input.filePath}\` in PR #${input.prId}:\n\`\`\`diff\n${diff}\n\`\`\``;
     });
@@ -88,7 +90,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── List Comments ─────────────────────────────────────────
     reg<{ prId: number }>('devnexus_bb_list_comments', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured.'; }
+        if (!client) { return BB_NOT_READY; }
         const comments = await client.getComments(input.prId);
         if (comments.length === 0) { return `No comments found on PR #${input.prId}.`; }
         const lines = comments.map((c: any) => {
@@ -104,7 +106,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── Add Comment ─────────────────────────────────────────────
     reg<{ prId: number; text: string; filePath?: string; line?: number; lineType?: string; severity?: 'NORMAL' | 'BLOCKER' }>('devnexus_bb_add_comment', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured.'; }
+        if (!client) { return BB_NOT_READY; }
         const anchor = input.filePath && input.line ? { path: input.filePath, line: input.line, lineType: input.lineType } : undefined;
         await client.addComment(input.prId, input.text, anchor, input.severity);
         const location = anchor ? ` on ${anchor.path}:${anchor.line}` : '';
@@ -115,7 +117,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── Add Reviewer ────────────────────────────────────────────
     reg<{ prId: number; username: string }>('devnexus_bb_add_reviewer', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured.'; }
+        if (!client) { return BB_NOT_READY; }
         await client.addReviewer(input.prId, input.username);
         return `Added ${input.username} as reviewer on PR #${input.prId}`;
     });
@@ -123,7 +125,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── Remove Reviewer ─────────────────────────────────────────
     reg<{ prId: number; username: string }>('devnexus_bb_remove_reviewer', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured.'; }
+        if (!client) { return BB_NOT_READY; }
         await client.removeReviewer(input.prId, input.username);
         return `Removed ${input.username} from PR #${input.prId}`;
     });
@@ -131,7 +133,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── Approve PR ──────────────────────────────────────────────
     reg<{ prId: number }>('devnexus_bb_approve_pr', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured.'; }
+        if (!client) { return BB_NOT_READY; }
         await client.approvePR(input.prId);
         return `Approved PR #${input.prId}`;
     });
@@ -139,7 +141,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── Decline PR ──────────────────────────────────────────────
     reg<{ prId: number }>('devnexus_bb_decline_pr', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured.'; }
+        if (!client) { return BB_NOT_READY; }
         await client.declinePR(input.prId);
         return `Declined PR #${input.prId}`;
     });
@@ -147,7 +149,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── Mark PR Needs Work ─────────────────────────────────────
     reg<{ prId: number }>('devnexus_bb_needs_work', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured.'; }
+        if (!client) { return BB_NOT_READY; }
         await client.needsWorkPR(input.prId);
         return `Marked PR #${input.prId} as needs work`;
     });
@@ -155,7 +157,7 @@ export function registerBitbucketTools(context: vscode.ExtensionContext, getClie
     // ── Create Branch ───────────────────────────────────────────
     reg<{ branchName: string; startPoint?: string }>('devnexus_bb_create_branch', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Bitbucket token not configured.'; }
+        if (!client) { return BB_NOT_READY; }
         const result = await client.createBranch(input.branchName, input.startPoint || 'develop');
         return `Created branch \`${result.displayId}\` from ${input.startPoint || 'develop'}`;
     });

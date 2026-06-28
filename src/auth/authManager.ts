@@ -7,6 +7,13 @@ const JIRA_PAT_KEY = 'devnexus.jira.pat';
 const BB_PAT_KEY = 'devnexus.bitbucket.pat';
 const ENV_FILE_NAME = '.devnexus-env';
 
+// Values from the bootstrap template that must NOT be treated as real credentials.
+const PLACEHOLDER_VALUES = new Set([
+    'your-jira-username',
+    'your_jira_personal_access_token_here',
+    'your_bitbucket_personal_access_token_here',
+]);
+
 export interface JiraCredentials {
     username: string;
     pat: string;
@@ -22,21 +29,42 @@ export class AuthManager {
     private secrets: vscode.SecretStorage;
     private jiraUsername: string | undefined;
     private userProfile: UserProfile | undefined;
+    private log: vscode.OutputChannel;
 
     constructor(private context: vscode.ExtensionContext) {
         this.secrets = context.secrets;
+        this.log = vscode.window.createOutputChannel('DevNexus Auth');
+        context.subscriptions.push(this.log);
     }
 
-    private getEnvFilePath(): string {
+    private getEnvFilePaths(): string[] {
         const home = process.env.USERPROFILE || process.env.HOME || '';
-        return path.join(home, ENV_FILE_NAME);
+        const paths: string[] = [];
+        if (home) { paths.push(path.join(home, ENV_FILE_NAME)); }
+        for (const folder of vscode.workspace.workspaceFolders ?? []) {
+            paths.push(path.join(folder.uri.fsPath, ENV_FILE_NAME));
+        }
+        return paths;
+    }
+
+    private sanitizeValue(raw: string): string {
+        let v = raw.trim();
+        // Strip surrounding single or double quotes.
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+            v = v.substring(1, v.length - 1);
+        }
+        return v;
+    }
+
+    private isPlaceholder(value: string): boolean {
+        return !value || PLACEHOLDER_VALUES.has(value);
     }
 
     private readEnvFile(): Record<string, string> {
-        const envPath = this.getEnvFilePath();
         const vars: Record<string, string> = {};
-        try {
-            if (fs.existsSync(envPath)) {
+        for (const envPath of this.getEnvFilePaths()) {
+            try {
+                if (!fs.existsSync(envPath)) { continue; }
                 const content = fs.readFileSync(envPath, 'utf-8');
                 for (const line of content.split(/\r?\n/)) {
                     const trimmed = line.trim();
@@ -44,13 +72,16 @@ export class AuthManager {
                     const eqIdx = trimmed.indexOf('=');
                     if (eqIdx > 0) {
                         const key = trimmed.substring(0, eqIdx).trim();
-                        const value = trimmed.substring(eqIdx + 1).trim();
-                        vars[key] = value;
+                        const value = this.sanitizeValue(trimmed.substring(eqIdx + 1));
+                        if (this.isPlaceholder(value)) { continue; }
+                        // First file wins so home overrides workspace; existing entries are kept.
+                        if (!(key in vars)) { vars[key] = value; }
                     }
                 }
+                this.log.appendLine(`[env] loaded ${envPath}`);
+            } catch (err: any) {
+                this.log.appendLine(`[env] failed to read ${envPath}: ${err.message}`);
             }
-        } catch {
-            // ignore read errors
         }
         return vars;
     }
@@ -80,24 +111,36 @@ export class AuthManager {
     }
 
     async getJiraCredentials(): Promise<JiraCredentials | undefined> {
-        let username = await this.secrets.get(JIRA_USER_KEY);
-        let pat = await this.secrets.get(JIRA_PAT_KEY);
+        const secretUser = await this.secrets.get(JIRA_USER_KEY);
+        const secretPat = await this.secrets.get(JIRA_PAT_KEY);
+        let username = secretUser && !this.isPlaceholder(secretUser) ? secretUser : undefined;
+        let pat = secretPat && !this.isPlaceholder(secretPat) ? secretPat : undefined;
+        let source = username && pat ? 'secretStorage' : '';
 
         if (!username || !pat) {
-            username = username || process.env.JIRA_USER;
-            pat = pat || process.env.JIRA_PAT;
+            const envUser = process.env.JIRA_USER && !this.isPlaceholder(process.env.JIRA_USER) ? process.env.JIRA_USER : undefined;
+            const envPat = process.env.JIRA_PAT && !this.isPlaceholder(process.env.JIRA_PAT) ? process.env.JIRA_PAT : undefined;
+            username = username || envUser;
+            pat = pat || envPat;
+            if (username && pat && !source) { source = 'process.env'; }
         }
 
         if (!username || !pat) {
             const envFile = this.readEnvFile();
             username = username || envFile.JIRA_USER;
             pat = pat || envFile.JIRA_PAT;
+            if (username && pat && !source) { source = `${ENV_FILE_NAME}`; }
         }
 
-        if (!username || !pat) { return undefined; }
+        if (!username || !pat) {
+            this.log.appendLine('[jira] no credentials found in SecretStorage, process.env, or env file');
+            return undefined;
+        }
 
-        const storedUser = await this.secrets.get(JIRA_USER_KEY);
-        if (!storedUser) {
+        this.log.appendLine(`[jira] credentials loaded from ${source} (user=${username})`);
+
+        // Persist to SecretStorage only if values came from env (not already stored).
+        if (!secretUser || !secretPat || this.isPlaceholder(secretUser) || this.isPlaceholder(secretPat)) {
             await this.secrets.store(JIRA_USER_KEY, username);
             await this.secrets.store(JIRA_PAT_KEY, pat);
         }
@@ -158,19 +201,30 @@ export class AuthManager {
     }
 
     async getBitbucketToken(): Promise<string | undefined> {
-        let pat = await this.secrets.get(BB_PAT_KEY);
+        const secretPat = await this.secrets.get(BB_PAT_KEY);
+        let pat = secretPat && !this.isPlaceholder(secretPat) ? secretPat : undefined;
+        let source = pat ? 'secretStorage' : '';
 
-        if (!pat) { pat = process.env.BITBUCKET_PAT; }
+        if (!pat) {
+            const envPat = process.env.BITBUCKET_PAT && !this.isPlaceholder(process.env.BITBUCKET_PAT) ? process.env.BITBUCKET_PAT : undefined;
+            pat = pat || envPat;
+            if (pat && !source) { source = 'process.env'; }
+        }
 
         if (!pat) {
             const envFile = this.readEnvFile();
-            pat = envFile.BITBUCKET_PAT;
+            pat = pat || envFile.BITBUCKET_PAT;
+            if (pat && !source) { source = ENV_FILE_NAME; }
         }
 
-        if (!pat) { return undefined; }
+        if (!pat) {
+            this.log.appendLine('[bb] no token found in SecretStorage, process.env, or env file');
+            return undefined;
+        }
 
-        const stored = await this.secrets.get(BB_PAT_KEY);
-        if (!stored) {
+        this.log.appendLine(`[bb] token loaded from ${source}`);
+
+        if (!secretPat || this.isPlaceholder(secretPat)) {
             await this.secrets.store(BB_PAT_KEY, pat);
         }
 
@@ -183,7 +237,13 @@ export class AuthManager {
     }
 
     async createEnvFile(): Promise<void> {
-        const envPath = this.getEnvFilePath();
+        // Prefer workspace folder if one is open; fall back to user home.
+        const folder = vscode.workspace.workspaceFolders?.[0];
+        const home = process.env.USERPROFILE || process.env.HOME || '';
+        const envPath = folder
+            ? path.join(folder.uri.fsPath, ENV_FILE_NAME)
+            : path.join(home, ENV_FILE_NAME);
+
         if (fs.existsSync(envPath)) {
             vscode.window.showInformationMessage(`${ENV_FILE_NAME} already exists at ${envPath}`);
             const doc = await vscode.workspace.openTextDocument(envPath);
@@ -214,6 +274,7 @@ export class AuthManager {
     async initializeContextFlags(): Promise<void> {
         const jiraOk = await this.isJiraAuthenticated();
         const bbOk = await this.isBitbucketAuthenticated();
+        this.log.appendLine(`[init] jiraAuthenticated=${jiraOk} bbAuthenticated=${bbOk}`);
         await vscode.commands.executeCommand('setContext', 'devnexus.jiraAuthenticated', jiraOk);
         await vscode.commands.executeCommand('setContext', 'devnexus.bbAuthenticated', bbOk);
         if (jiraOk) {

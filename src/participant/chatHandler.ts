@@ -435,11 +435,18 @@ export function registerChatParticipant(context: vscode.ExtensionContext, auth?:
                 const resultText = await invokeToolDirect(tc.name, tc.input, token);
                 log.info(`[exec] ${tc.name} result: ${resultText.substring(0, 500)}`);
 
-                // Check for credential errors from the tool itself
-                if (resultText.includes('credentials not configured') || resultText.includes('Credentials not configured')) {
+                // Check for not-ready errors from the tool itself
+                if (resultText.includes('is not ready') || resultText.includes('not configured')) {
                     hasError = true;
-                    response.markdown(`**Authentication required.** Run \`Ctrl+Shift+P\` → "DevNexus: Set Jira Credentials" or "DevNexus: Create Credentials File" first.\n\n` +
-                        `Tool response: ${resultText}`);
+                    response.markdown(
+                        `**DevNexus is not fully configured.**\n\n` +
+                        `${resultText}\n\n` +
+                        `Quick checklist:\n` +
+                        `- Jira: \`devnexus.jira.baseUrl\` is set in Settings, and \`JIRA_USER\` / \`JIRA_PAT\` exist in SecretStorage or \`.devnexus-env\`.\n` +
+                        `- Bitbucket: \`devnexus.bitbucket.baseUrl\` / \`project\` / \`repo\` are set in Settings, and \`BITBUCKET_PAT\` is available.\n\n` +
+                        `Run \`Ctrl+Shift+P\` → "DevNexus: Set Jira Credentials" / "DevNexus: Set Bitbucket Token" / "DevNexus: Create Credentials File". ` +
+                        `See the **DevNexus Auth** output channel for which source the credentials were loaded from.`
+                    );
                     return {};
                 }
 

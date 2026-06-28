@@ -3,6 +3,8 @@ import { JiraClient } from '../api/jiraClient';
 import { AuthManager } from '../auth/authManager';
 import { registerToolHandler } from './toolRegistry';
 
+const JIRA_NOT_READY = 'Jira is not ready. Verify (1) Jira credentials (SecretStorage or .devnexus-env JIRA_USER/JIRA_PAT) and (2) devnexus.jira.baseUrl in VS Code Settings.';
+
 export function registerJiraTools(context: vscode.ExtensionContext, getClient: () => Promise<JiraClient | undefined>, auth: AuthManager): void {
 
     // Helper: register both in vscode.lm AND in our direct-call registry
@@ -19,7 +21,7 @@ export function registerJiraTools(context: vscode.ExtensionContext, getClient: (
     // ── Get Issue ───────────────────────────────────────────────
     reg<{ issueKey: string }>('devnexus_jira_get_issue', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Jira credentials not configured. Run "DevNexus: Set Jira Credentials" first.'; }
+        if (!client) { return JIRA_NOT_READY; }
         const issue = await client.getIssue(input.issueKey);
         const subtasks = issue.fields.subtasks?.map((s: any) =>
             `  - ${s.key}: ${s.fields.summary} [${s.fields.status.name}]${s.fields.assignee ? ` (${s.fields.assignee.displayName})` : ''}`
@@ -40,7 +42,7 @@ export function registerJiraTools(context: vscode.ExtensionContext, getClient: (
     // ── Create Issue ────────────────────────────────────────────
     reg<{ projectKey: string; issueType: string; summary: string; description?: string; labels?: string[]; fixVersions?: string[]; assignee?: string }>('devnexus_jira_create_issue', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Jira credentials not configured.'; }
+        if (!client) { return JIRA_NOT_READY; }
         const assignee = input.assignee === 'self' ? auth.getJiraUsername() : input.assignee;
         const result = await client.createIssue({
             projectKey: input.projectKey, issueType: input.issueType, summary: input.summary,
@@ -53,7 +55,7 @@ export function registerJiraTools(context: vscode.ExtensionContext, getClient: (
     // ── Create Subtask ──────────────────────────────────────────
     reg<{ parentKey: string; summary: string; description?: string; labels?: string[]; fixVersions?: string[]; assignee?: string }>('devnexus_jira_create_subtask', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Jira credentials not configured.'; }
+        if (!client) { return JIRA_NOT_READY; }
         const parent = await client.getIssue(input.parentKey);
         const projectKey = parent.fields.project.key;
         const fixVersions = input.fixVersions?.length ? input.fixVersions : (parent.fields.fixVersions ?? []).map((v: any) => v.name);
@@ -69,7 +71,7 @@ export function registerJiraTools(context: vscode.ExtensionContext, getClient: (
     // ── Search ──────────────────────────────────────────────────
     reg<{ jql: string; maxResults?: number }>('devnexus_jira_search', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Jira credentials not configured.'; }
+        if (!client) { return JIRA_NOT_READY; }
         const data = await client.search(input.jql, input.maxResults || 20);
         const lines = data.issues.map((i: any) =>
             `- **${i.key}** — ${i.fields.summary} [${i.fields.status.name}] ${i.fields.assignee?.displayName || 'Unassigned'}`
@@ -80,7 +82,7 @@ export function registerJiraTools(context: vscode.ExtensionContext, getClient: (
     // ── Transition ──────────────────────────────────────────────
     reg<{ issueKey: string; transitionName: string }>('devnexus_jira_transition', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Jira credentials not configured.'; }
+        if (!client) { return JIRA_NOT_READY; }
         await client.transitionIssue(input.issueKey, input.transitionName);
         return `Transitioned **${input.issueKey}** → **${input.transitionName}**`;
     });
@@ -88,7 +90,7 @@ export function registerJiraTools(context: vscode.ExtensionContext, getClient: (
     // ── Add Comment ─────────────────────────────────────────────
     reg<{ issueKey: string; body: string }>('devnexus_jira_add_comment', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Jira credentials not configured.'; }
+        if (!client) { return JIRA_NOT_READY; }
         await client.addComment(input.issueKey, input.body);
         return `Comment added to **${input.issueKey}**`;
     });
@@ -96,7 +98,7 @@ export function registerJiraTools(context: vscode.ExtensionContext, getClient: (
     // ── Update Fields ───────────────────────────────────────────
     reg<{ issueKey: string; fields: { summary?: string; description?: string; labels?: string[]; fixVersions?: string[]; assignee?: string; priority?: string; originalEstimate?: string; remainingEstimate?: string } }>('devnexus_jira_update_fields', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Jira credentials not configured.'; }
+        if (!client) { return JIRA_NOT_READY; }
         const f = input.fields;
         if (f.assignee === 'self') { f.assignee = auth.getJiraUsername(); }
         await client.updateFields(input.issueKey, f);
@@ -106,7 +108,7 @@ export function registerJiraTools(context: vscode.ExtensionContext, getClient: (
     // ── Log Work ────────────────────────────────────────────────
     reg<{ issueKey: string; timeSpent: string; started?: string }>('devnexus_jira_log_work', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Jira credentials not configured.'; }
+        if (!client) { return JIRA_NOT_READY; }
         await client.logWork(input.issueKey, input.timeSpent, input.started);
         return `Logged **${input.timeSpent}** of work on **${input.issueKey}**`;
     });
@@ -114,7 +116,7 @@ export function registerJiraTools(context: vscode.ExtensionContext, getClient: (
     // ── Link Issues ─────────────────────────────────────────────
     reg<{ linkType: string; inwardKey: string; outwardKey: string }>('devnexus_jira_link_issues', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Jira credentials not configured.'; }
+        if (!client) { return JIRA_NOT_READY; }
         await client.linkIssues(input.linkType, input.inwardKey, input.outwardKey);
         return `Linked: ${input.outwardKey} **${input.linkType}** ${input.inwardKey}`;
     });
@@ -122,7 +124,7 @@ export function registerJiraTools(context: vscode.ExtensionContext, getClient: (
     // ── List Subtasks ───────────────────────────────────────────
     reg<{ parentKey: string }>('devnexus_jira_list_subtasks', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Jira credentials not configured.'; }
+        if (!client) { return JIRA_NOT_READY; }
         const issue = await client.getIssue(input.parentKey);
         const subtasks = issue.fields.subtasks || [];
         if (subtasks.length === 0) { return `${input.parentKey} has no subtasks.`; }
@@ -135,7 +137,7 @@ export function registerJiraTools(context: vscode.ExtensionContext, getClient: (
     // ── Assign ──────────────────────────────────────────────────
     reg<{ issueKey: string; assignee: string }>('devnexus_jira_assign', async (input) => {
         const client = await getClient();
-        if (!client) { return 'Jira credentials not configured.'; }
+        if (!client) { return JIRA_NOT_READY; }
         const assignee = input.assignee === 'self' ? auth.getJiraUsername() || input.assignee : input.assignee;
         await client.assignIssue(input.issueKey, assignee);
         return `Assigned **${input.issueKey}** to ${assignee}`;

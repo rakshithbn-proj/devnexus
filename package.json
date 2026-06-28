@@ -2,7 +2,7 @@
   "name": "devnexus",
   "displayName": "DevNexus",
   "description": "Chain Jira and Bitbucket workflows with @nexus in Copilot Chat. Natural language DevOps operations across any Jira Server and Bitbucket Server instance.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "rakshithbn",
   "repository": {
     "type": "git",
