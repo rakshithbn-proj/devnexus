@@ -44,8 +44,10 @@ export class JiraClient {
     private authHeader: string;
 
     constructor(baseUrl: string, credentials: JiraCredentials) {
-        this.baseUrl = baseUrl;
-        this.apiBase = `${baseUrl}/rest/api/2`;
+        // Strip trailing slashes so '${baseUrl}/rest/api/2' never produces '//rest/...'
+        // (Java servlets return 404 'null for uri' for paths starting with '//').
+        this.baseUrl = baseUrl.replace(/\/+$/, '');
+        this.apiBase = `${this.baseUrl}/rest/api/2`;
         // Jira Server PAT uses Bearer auth
         this.authHeader = `Bearer ${credentials.pat}`;
     }

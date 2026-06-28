@@ -35,19 +35,44 @@ export interface PRComment {
 export interface BitbucketConfig {
     baseUrl: string;
     project: string;
-    repo: string;
+    /** Default repository slug. Optional — tools may pass an explicit repo per call. */
+    repo?: string;
+}
+
+export interface BitbucketRepo {
+    slug: string;
+    name: string;
+    project: { key: string };
 }
 
 export class BitbucketClient {
     private config: BitbucketConfig;
     private pat: string;
-    private baseApi: string;
     private _currentUser: string | undefined;
 
     constructor(config: BitbucketConfig, pat: string) {
-        this.config = config;
+        // Strip trailing slashes so URL concatenation never produces '//rest/...'.
+        this.config = {
+            ...config,
+            baseUrl: config.baseUrl.replace(/\/+$/, ''),
+        };
         this.pat = pat;
-        this.baseApi = `${config.baseUrl}/rest/api/1.0/projects/${config.project}/repos/${config.repo}`;
+    }
+
+    private resolveRepo(explicit?: string): string {
+        const slug = (explicit ?? this.config.repo ?? '').trim();
+        if (!slug) {
+            throw new Error(
+                'Bitbucket repository not specified. Pass a `repo` argument to the tool, ' +
+                'or set `devnexus.bitbucket.repo` in VS Code Settings as the default.'
+            );
+        }
+        return slug;
+    }
+
+    private repoApi(repo?: string): string {
+        const slug = this.resolveRepo(repo);
+        return `${this.config.baseUrl}/rest/api/1.0/projects/${this.config.project}/repos/${slug}`;
     }
 
     get currentUser(): string | undefined { return this._currentUser; }
@@ -59,8 +84,8 @@ export class BitbucketClient {
         };
     }
 
-    private async apiGet<T>(path: string, params?: Record<string, string>): Promise<T> {
-        let url = `${this.baseApi}${path}`;
+    private async apiGet<T>(path: string, params?: Record<string, string>, repo?: string): Promise<T> {
+        let url = `${this.repoApi(repo)}${path}`;
         if (params) {
             url += `?${new URLSearchParams(params).toString()}`;
         }
@@ -71,8 +96,8 @@ export class BitbucketClient {
         return resp.json() as Promise<T>;
     }
 
-    private async apiPost<T>(path: string, body: unknown): Promise<T> {
-        const resp = await fetch(`${this.baseApi}${path}`, {
+    private async apiPost<T>(path: string, body: unknown, repo?: string): Promise<T> {
+        const resp = await fetch(`${this.repoApi(repo)}${path}`, {
             method: 'POST',
             headers: this.headers,
             body: JSON.stringify(body),
@@ -84,8 +109,8 @@ export class BitbucketClient {
         return resp.json() as Promise<T>;
     }
 
-    private async apiPut<T>(path: string, body: unknown): Promise<T> {
-        const resp = await fetch(`${this.baseApi}${path}`, {
+    private async apiPut<T>(path: string, body: unknown, repo?: string): Promise<T> {
+        const resp = await fetch(`${this.repoApi(repo)}${path}`, {
             method: 'PUT',
             headers: this.headers,
             body: JSON.stringify(body),
@@ -96,8 +121,8 @@ export class BitbucketClient {
         return resp.json() as Promise<T>;
     }
 
-    private async apiDelete(path: string): Promise<void> {
-        const resp = await fetch(`${this.baseApi}${path}`, {
+    private async apiDelete(path: string, repo?: string): Promise<void> {
+        const resp = await fetch(`${this.repoApi(repo)}${path}`, {
             method: 'DELETE',
             headers: this.headers,
         });
@@ -123,15 +148,55 @@ export class BitbucketClient {
 
     // ── Pull Requests ───────────────────────────────────────────
 
-    async listPRs(state: string = 'OPEN', limit: number = 25): Promise<PullRequest[]> {
-        const data = await this.apiGet<{ values: PullRequest[] }>('/pull-requests', {
-            state,
-            limit: limit.toString(),
-        });
+    /** List all repositories in the configured Bitbucket project. */
+    async listRepos(limit: number = 1000): Promise<BitbucketRepo[]> {
+        const url = `${this.config.baseUrl}/rest/api/1.0/projects/${this.config.project}/repos?limit=${limit}`;
+        const resp = await fetch(url, { headers: this.headers });
+        if (!resp.ok) {
+            const text = await resp.text();
+            throw new Error(`Bitbucket list repos failed: ${resp.status} — ${text.substring(0, 500)}`);
+        }
+        const data = await resp.json() as { values: BitbucketRepo[] };
         return data.values;
     }
 
+    async listPRs(state: string = 'OPEN', limit: number = 25, repo?: string): Promise<PullRequest[]> {
+        const data = await this.apiGet<{ values: PullRequest[] }>('/pull-requests', {
+            state,
+            limit: limit.toString(),
+        }, repo);
+        return data.values;
+    }
+
+    /**
+     * List PRs across ALL repos in the configured project where the current user has
+     * the given role. Uses the dashboard endpoint, so no specific repo is required.
+     */
+    private async dashboardPRs(role: 'AUTHOR' | 'REVIEWER', limit: number): Promise<PullRequest[]> {
+        const params = new URLSearchParams({
+            role,
+            state: 'OPEN',
+            limit: limit.toString(),
+            order: 'NEWEST',
+        });
+        const url = `${this.config.baseUrl}/rest/api/1.0/dashboard/pull-requests?${params.toString()}`;
+        const resp = await fetch(url, { headers: this.headers });
+        if (!resp.ok) {
+            const text = await resp.text();
+            throw new Error(`Bitbucket dashboard PRs failed: ${resp.status} — ${text.substring(0, 500)}`);
+        }
+        const data = await resp.json() as { values: PullRequest[] };
+        // Filter to the configured project (dashboard returns PRs across all projects).
+        return data.values.filter(pr => {
+            const projectKey = (pr as any)?.toRef?.repository?.project?.key;
+            return !projectKey || projectKey === this.config.project;
+        });
+    }
+
     async getMyPRs(limit: number = 25): Promise<PullRequest[]> {
+        if (!this.config.repo) {
+            return this.dashboardPRs('AUTHOR', limit);
+        }
         const allPRs = await this.listPRs('OPEN', limit);
         const username = await this.resolveCurrentUser();
         if (!username) { return allPRs; }
@@ -139,6 +204,9 @@ export class BitbucketClient {
     }
 
     async getPRsToReview(limit: number = 25): Promise<PullRequest[]> {
+        if (!this.config.repo) {
+            return this.dashboardPRs('REVIEWER', limit);
+        }
         const allPRs = await this.listPRs('OPEN', limit);
         const username = await this.resolveCurrentUser();
         if (!username) { return []; }
@@ -147,8 +215,8 @@ export class BitbucketClient {
         );
     }
 
-    async getPR(prId: number): Promise<PullRequest> {
-        return this.apiGet<PullRequest>(`/pull-requests/${prId}`);
+    async getPR(prId: number, repo?: string): Promise<PullRequest> {
+        return this.apiGet<PullRequest>(`/pull-requests/${prId}`, undefined, repo);
     }
 
     async createPR(params: {
@@ -157,6 +225,7 @@ export class BitbucketClient {
         fromBranch: string;
         toBranch?: string;
         reviewers?: string[];
+        repo?: string;
     }): Promise<PullRequest> {
         const body: Record<string, unknown> = {
             title: params.title,
@@ -167,17 +236,17 @@ export class BitbucketClient {
         if (params.reviewers?.length) {
             body.reviewers = params.reviewers.map(u => ({ user: { name: u } }));
         }
-        return this.apiPost<PullRequest>('/pull-requests', body);
+        return this.apiPost<PullRequest>('/pull-requests', body, params.repo);
     }
 
-    async mergePR(prId: number): Promise<PullRequest> {
-        const pr = await this.getPR(prId);
+    async mergePR(prId: number, repo?: string): Promise<PullRequest> {
+        const pr = await this.getPR(prId, repo);
         const version = (pr as any).version ?? 0;
-        return this.apiPost<PullRequest>(`/pull-requests/${prId}/merge?version=${version}`, {});
+        return this.apiPost<PullRequest>(`/pull-requests/${prId}/merge?version=${version}`, {}, repo);
     }
 
-    async approvePR(prId: number): Promise<void> {
-        const resp = await fetch(`${this.baseApi}/pull-requests/${prId}/approve`, {
+    async approvePR(prId: number, repo?: string): Promise<void> {
+        const resp = await fetch(`${this.repoApi(repo)}/pull-requests/${prId}/approve`, {
             method: 'POST',
             headers: this.headers,
         });
@@ -186,20 +255,20 @@ export class BitbucketClient {
         }
     }
 
-    async declinePR(prId: number): Promise<PullRequest> {
-        const pr = await this.getPR(prId);
+    async declinePR(prId: number, repo?: string): Promise<PullRequest> {
+        const pr = await this.getPR(prId, repo);
         const version = (pr as any).version ?? 0;
-        return this.apiPost<PullRequest>(`/pull-requests/${prId}/decline?version=${version}`, {});
+        return this.apiPost<PullRequest>(`/pull-requests/${prId}/decline?version=${version}`, {}, repo);
     }
 
-    async needsWorkPR(prId: number): Promise<void> {
+    async needsWorkPR(prId: number, repo?: string): Promise<void> {
         const currentUser = (await this.resolveCurrentUser()) || '';
         if (!currentUser) {
             throw new Error('Unable to resolve current Bitbucket user for needs-work action.');
         }
 
         const resp = await fetch(
-            `${this.baseApi}/pull-requests/${prId}/participants/${encodeURIComponent(currentUser)}`,
+            `${this.repoApi(repo)}/pull-requests/${prId}/participants/${encodeURIComponent(currentUser)}`,
             {
                 method: 'PUT',
                 headers: this.headers,
@@ -215,19 +284,19 @@ export class BitbucketClient {
 
     // ── Reviewers ───────────────────────────────────────────────
 
-    async addReviewer(prId: number, username: string): Promise<void> {
-        const pr = await this.getPR(prId);
+    async addReviewer(prId: number, username: string, repo?: string): Promise<void> {
+        const pr = await this.getPR(prId, repo);
         const existing = pr.reviewers.map(r => ({ user: { name: r.user.name } }));
         existing.push({ user: { name: username } });
         await this.apiPut(`/pull-requests/${prId}`, {
             title: pr.title,
             reviewers: existing,
             version: (pr as any).version ?? 0,
-        });
+        }, repo);
     }
 
-    async removeReviewer(prId: number, username: string): Promise<void> {
-        const pr = await this.getPR(prId);
+    async removeReviewer(prId: number, username: string, repo?: string): Promise<void> {
+        const pr = await this.getPR(prId, repo);
         const filtered = pr.reviewers
             .filter(r => r.user.name.toLowerCase() !== username.toLowerCase())
             .map(r => ({ user: { name: r.user.name } }));
@@ -235,18 +304,18 @@ export class BitbucketClient {
             title: pr.title,
             reviewers: filtered,
             version: (pr as any).version ?? 0,
-        });
+        }, repo);
     }
 
     // ── Changes & Diffs ─────────────────────────────────────────
 
-    async getChanges(prId: number): Promise<PRChange[]> {
-        const data = await this.apiGet<{ values: PRChange[] }>(`/pull-requests/${prId}/changes`, { limit: '1000' });
+    async getChanges(prId: number, repo?: string): Promise<PRChange[]> {
+        const data = await this.apiGet<{ values: PRChange[] }>(`/pull-requests/${prId}/changes`, { limit: '1000' }, repo);
         return data.values;
     }
 
-    async getDiff(prId: number, filePath: string, contextLines: number = 5): Promise<string> {
-        const url = `${this.baseApi}/pull-requests/${prId}/diff/${filePath}?contextLines=${contextLines}`;
+    async getDiff(prId: number, filePath: string, contextLines: number = 5, repo?: string): Promise<string> {
+        const url = `${this.repoApi(repo)}/pull-requests/${prId}/diff/${filePath}?contextLines=${contextLines}`;
         const resp = await fetch(url, { headers: this.headers });
         if (!resp.ok) {
             throw new Error(`Diff failed: ${resp.status} ${resp.statusText}`);
@@ -256,8 +325,8 @@ export class BitbucketClient {
 
     // ── Comments ────────────────────────────────────────────────
 
-    async getComments(prId: number): Promise<PRComment[]> {
-        const url = `${this.baseApi}/pull-requests/${prId}/activities?limit=500`;
+    async getComments(prId: number, repo?: string): Promise<PRComment[]> {
+        const url = `${this.repoApi(repo)}/pull-requests/${prId}/activities?limit=500`;
         const resp = await fetch(url, { headers: this.headers });
         if (!resp.ok) {
             const text = await resp.text();
@@ -295,7 +364,7 @@ export class BitbucketClient {
         path: string;
         line: number;
         lineType?: string;
-    }, severity?: 'NORMAL' | 'BLOCKER'): Promise<PRComment> {
+    }, severity?: 'NORMAL' | 'BLOCKER', repo?: string): Promise<PRComment> {
         const body: Record<string, unknown> = { text };
         if (anchor) {
             body.anchor = {
@@ -308,14 +377,14 @@ export class BitbucketClient {
         if (severity === 'BLOCKER') {
             body.severity = 'BLOCKER';
         }
-        return this.apiPost<PRComment>(`/pull-requests/${prId}/comments`, body);
+        return this.apiPost<PRComment>(`/pull-requests/${prId}/comments`, body, repo);
     }
 
     // ── Branches ────────────────────────────────────────────────
 
-    async createBranch(branchName: string, startPoint: string = 'develop'): Promise<{ id: string; displayId: string }> {
-        // Bitbucket REST API for branch creation uses the branch-utils endpoint
-        const url = `${this.config.baseUrl}/rest/branch-utils/1.0/projects/${this.config.project}/repos/${this.config.repo}/branches`;
+    async createBranch(branchName: string, startPoint: string = 'develop', repo?: string): Promise<{ id: string; displayId: string }> {
+        const slug = this.resolveRepo(repo);
+        const url = `${this.config.baseUrl}/rest/branch-utils/1.0/projects/${this.config.project}/repos/${slug}/branches`;
         const resp = await fetch(url, {
             method: 'POST',
             headers: this.headers,
@@ -333,7 +402,8 @@ export class BitbucketClient {
 
     // ── Helpers ─────────────────────────────────────────────────
 
-    getPRUrl(prId: number): string {
-        return `${this.config.baseUrl}/projects/${this.config.project}/repos/${this.config.repo}/pull-requests/${prId}`;
+    getPRUrl(prId: number, repo?: string): string {
+        const slug = this.resolveRepo(repo);
+        return `${this.config.baseUrl}/projects/${this.config.project}/repos/${slug}/pull-requests/${prId}`;
     }
 }

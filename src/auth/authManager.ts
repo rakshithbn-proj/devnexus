@@ -160,7 +160,7 @@ export class AuthManager {
     private async fetchUserProfile(creds: JiraCredentials): Promise<void> {
         try {
             const config = vscode.workspace.getConfiguration('devnexus.jira');
-            const baseUrl = config.get<string>('baseUrl', '');
+            const baseUrl = config.get<string>('baseUrl', '').replace(/\/+$/, '');
             if (!baseUrl.trim()) { return; }
             const resp = await fetch(`${baseUrl}/rest/api/2/myself`, {
                 headers: {

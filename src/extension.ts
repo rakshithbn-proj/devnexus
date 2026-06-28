@@ -21,8 +21,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         const creds = await auth.getJiraCredentials();
         if (!creds) { return undefined; }
         const config = vscode.workspace.getConfiguration('devnexus.jira');
-        const baseUrl = config.get<string>('baseUrl', '');
-        if (!baseUrl.trim()) {
+        const baseUrl = config.get<string>('baseUrl', '').trim().replace(/\/+$/, '');
+        if (!baseUrl) {
             void vscode.window.showWarningMessage('DevNexus: Jira URL not configured. Open Settings and set devnexus.jira.baseUrl.');
             return undefined;
         }
@@ -36,20 +36,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         if (!pat) { return undefined; }
         const config = vscode.workspace.getConfiguration('devnexus.bitbucket');
         const bbConfig: BitbucketConfig = {
-            baseUrl: config.get<string>('baseUrl', ''),
-            project: config.get<string>('project', ''),
-            repo: config.get<string>('repo', ''),
+            baseUrl: config.get<string>('baseUrl', '').trim().replace(/\/+$/, ''),
+            project: config.get<string>('project', '').trim(),
+            repo: config.get<string>('repo', '').trim() || undefined,
         };
-        if (!bbConfig.baseUrl.trim()) {
+        if (!bbConfig.baseUrl) {
             void vscode.window.showWarningMessage('DevNexus: Bitbucket URL not configured. Open Settings and set devnexus.bitbucket.baseUrl.');
             return undefined;
         }
-        if (!bbConfig.project.trim()) {
+        if (!bbConfig.project) {
             void vscode.window.showWarningMessage('DevNexus: Bitbucket project not configured. Open Settings and set devnexus.bitbucket.project.');
-            return undefined;
-        }
-        if (!bbConfig.repo.trim()) {
-            void vscode.window.showWarningMessage('DevNexus: Bitbucket repo not configured. Open Settings and set devnexus.bitbucket.repo.');
             return undefined;
         }
         bbClient = new BitbucketClient(bbConfig, pat);

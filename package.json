@@ -2,7 +2,7 @@
   "name": "devnexus",
   "displayName": "DevNexus",
   "description": "Chain Jira and Bitbucket workflows with @nexus in Copilot Chat. Natural language DevOps operations across any Jira Server and Bitbucket Server instance.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "rakshithbn",
   "repository": {
     "type": "git",
@@ -397,6 +397,17 @@
         }
       },
       {
+        "name": "devnexus_bb_list_repos",
+        "displayName": "Bitbucket: List Repos",
+        "toolReferenceName": "nexus_bb_list_repos",
+        "canBeReferencedInPrompt": true,
+        "description": "List all repositories in the configured Bitbucket project.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      {
         "name": "devnexus_bb_list_prs",
         "displayName": "Bitbucket: List PRs",
         "toolReferenceName": "nexus_bb_list_prs",
@@ -426,6 +437,10 @@
             "limit": {
               "type": "number",
               "description": "Max results (default 25)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting). Ignored when filter is 'mine' or 'reviewing' (those span the whole project)."
             }
           }
         }
@@ -442,6 +457,10 @@
             "prId": {
               "type": "number",
               "description": "Pull request ID number"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting)."
             }
           },
           "required": [
@@ -480,6 +499,10 @@
                 "type": "string"
               },
               "description": "Reviewer usernames to add"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting)."
             }
           },
           "required": [
@@ -500,6 +523,10 @@
             "prId": {
               "type": "number",
               "description": "Pull request ID"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting)."
             }
           },
           "required": [
@@ -519,6 +546,10 @@
             "prId": {
               "type": "number",
               "description": "Pull request ID"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting)."
             }
           },
           "required": [
@@ -546,6 +577,10 @@
             "contextLines": {
               "type": "number",
               "description": "Lines of context around changes (default 5)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting)."
             }
           },
           "required": [
@@ -595,6 +630,10 @@
                 "BLOCKER"
               ],
               "description": "Comment severity (optional)."
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting)."
             }
           },
           "required": [
@@ -615,6 +654,10 @@
             "prId": {
               "type": "number",
               "description": "Pull request ID"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting)."
             }
           },
           "required": [
@@ -638,6 +681,10 @@
             "username": {
               "type": "string",
               "description": "Reviewer username"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting)."
             }
           },
           "required": [
@@ -662,6 +709,10 @@
             "username": {
               "type": "string",
               "description": "Reviewer username to remove"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting)."
             }
           },
           "required": [
@@ -682,6 +733,10 @@
             "prId": {
               "type": "number",
               "description": "Pull request ID"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting)."
             }
           },
           "required": [
@@ -701,6 +756,10 @@
             "prId": {
               "type": "number",
               "description": "Pull request ID"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting)."
             }
           },
           "required": [
@@ -720,6 +779,10 @@
             "prId": {
               "type": "number",
               "description": "Pull request ID"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting)."
             }
           },
           "required": [
@@ -743,6 +806,10 @@
             "startPoint": {
               "type": "string",
               "description": "Base branch or commit to branch from (default 'develop')"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository slug (optional — defaults to devnexus.bitbucket.repo setting)."
             }
           },
           "required": [
@@ -777,7 +844,7 @@
         "devnexus.bitbucket.repo": {
           "type": "string",
           "default": "",
-          "description": "Bitbucket repository slug"
+          "description": "Default Bitbucket repository slug (optional). Leave blank to access every repo in the project — tools accept a `repo` argument per call."
         }
       }
     },

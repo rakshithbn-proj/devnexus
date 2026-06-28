@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.2] — 2026-06-28
+
+### Fixed
+- Jira REST calls now strip trailing slashes from `devnexus.jira.baseUrl`, fixing `404 null for uri` when the configured URL ends with `/` (e.g. `https://jira.example.com/` previously produced `https://jira.example.com//rest/api/2/search`)
+- Same trailing-slash normalization applied to `devnexus.bitbucket.baseUrl`
+
+### Changed
+- `devnexus.bitbucket.repo` is now **optional**. Leave it blank to access every repository in the configured project — every Bitbucket tool accepts an optional `repo` argument that overrides (or supplies) the slug per call
+- "My open PRs" / "PRs to review" use Bitbucket's `/dashboard/pull-requests` endpoint when no default repo is set, so they list PRs across all repos in the project
+
+### Added
+- `devnexus_bb_list_repos` tool — lists every repository in the configured project
+- Tree view now has a "Repositories" section that expands to show each repo's open PRs
+
 ## [1.0.1] — 2026-06-28
 
 ### Fixed
