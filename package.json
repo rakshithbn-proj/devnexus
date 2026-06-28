@@ -10,6 +10,11 @@
   },
   "homepage": "https://github.com/rakshithbn-proj/devnexus",
   "license": "MIT",
+  "icon": "assets/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
   "keywords": [
     "jira",
     "bitbucket",

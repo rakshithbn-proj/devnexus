@@ -366,7 +366,6 @@ const log = vscode.window.createOutputChannel('DevNexus', { log: true });
 
 export function registerChatParticipant(context: vscode.ExtensionContext, auth?: AuthManager): void {
     context.subscriptions.push(log);
-    log.show(true); // Show output channel (preserves focus)
     log.info('[init] DevNexus chat participant registered');
 
     const handler: vscode.ChatRequestHandler = async (

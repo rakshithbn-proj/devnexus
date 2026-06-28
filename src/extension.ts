@@ -44,6 +44,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             void vscode.window.showWarningMessage('DevNexus: Bitbucket URL not configured. Open Settings and set devnexus.bitbucket.baseUrl.');
             return undefined;
         }
+        if (!bbConfig.project.trim()) {
+            void vscode.window.showWarningMessage('DevNexus: Bitbucket project not configured. Open Settings and set devnexus.bitbucket.project.');
+            return undefined;
+        }
+        if (!bbConfig.repo.trim()) {
+            void vscode.window.showWarningMessage('DevNexus: Bitbucket repo not configured. Open Settings and set devnexus.bitbucket.repo.');
+            return undefined;
+        }
         bbClient = new BitbucketClient(bbConfig, pat);
         return bbClient;
     }

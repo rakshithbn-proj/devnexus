@@ -56,7 +56,7 @@ export function registerJiraTools(context: vscode.ExtensionContext, getClient: (
         if (!client) { return 'Jira credentials not configured.'; }
         const parent = await client.getIssue(input.parentKey);
         const projectKey = parent.fields.project.key;
-        const fixVersions = input.fixVersions?.length ? input.fixVersions : parent.fields.fixVersions.map((v: any) => v.name);
+        const fixVersions = input.fixVersions?.length ? input.fixVersions : (parent.fields.fixVersions ?? []).map((v: any) => v.name);
         const assignee = input.assignee === 'self' ? auth.getJiraUsername() : input.assignee;
         const result = await client.createSubtask({
             parentKey: input.parentKey, projectKey, summary: input.summary,

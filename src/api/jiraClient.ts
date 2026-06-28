@@ -1,6 +1,6 @@
 import { JiraCredentials } from '../auth/authManager';
 
-const SUBTASK_TYPE_ID = '5';
+const SUBTASK_TYPE_NAME = 'Sub-task';
 
 export interface JiraIssue {
     key: string;
@@ -126,7 +126,7 @@ export class JiraClient {
         const fields: Record<string, unknown> = {
             project: { key: params.projectKey },
             parent: { key: params.parentKey },
-            issuetype: { id: SUBTASK_TYPE_ID },
+            issuetype: { name: SUBTASK_TYPE_NAME },
             summary: params.summary,
         };
         if (params.description) { fields.description = params.description; }

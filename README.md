@@ -12,7 +12,7 @@ DevNexus is a VS Code extension that brings Jira Server and Bitbucket Server ope
 
 - `@nexus` Copilot Chat participant for Jira and Bitbucket workflows
 - 11 Jira tools for issue lookup, creation, search, assignment, comments, links, estimates, and work logging
-- 12 Bitbucket tools for PR triage, review actions, comments, diffs, reviewers, and branch creation
+- 14 Bitbucket tools for PR triage, review actions, comments, diffs, reviewers, and branch creation
 - Activity bar views for **My Jira Issues** and **Pull Requests**
 - Runtime configuration for any Jira Server and Bitbucket Server instance
 - Secure credential storage in VS Code SecretStorage
