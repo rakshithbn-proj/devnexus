@@ -1,0 +1,880 @@
+{
+  "name": "devnexus",
+  "displayName": "DevNexus",
+  "description": "Chain Jira and Bitbucket workflows with @nexus in Copilot Chat. Natural language DevOps operations across any Jira Server and Bitbucket Server instance.",
+  "version": "1.0.0",
+  "publisher": "rakshithbn",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rakshithbn-proj/devnexus"
+  },
+  "homepage": "https://github.com/rakshithbn-proj/devnexus",
+  "license": "MIT",
+  "keywords": [
+    "jira",
+    "bitbucket",
+    "devops",
+    "copilot",
+    "chat",
+    "nexus",
+    "agent"
+  ],
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Chat",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "devnexus.nexus",
+        "fullName": "DevNexus",
+        "name": "nexus",
+        "description": "Manage Jira tickets and Bitbucket PRs with natural language. Try: 'create a subtask under PROJ-123'",
+        "isSticky": true
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "devnexus_jira_get_issue",
+        "displayName": "Jira: Get Issue",
+        "toolReferenceName": "nexus_jira_get_issue",
+        "canBeReferencedInPrompt": true,
+        "description": "Fetch a Jira issue's details including summary, status, labels, fix versions, assignee, and subtasks.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "issueKey": {
+              "type": "string",
+              "description": "Jira issue key, e.g. PROJ-123"
+            }
+          },
+          "required": [
+            "issueKey"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_jira_create_issue",
+        "displayName": "Jira: Create Issue",
+        "toolReferenceName": "nexus_jira_create_issue",
+        "canBeReferencedInPrompt": true,
+        "description": "Create a new Jira issue (Story, Task, or Bug) in a project.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectKey": {
+              "type": "string",
+              "description": "Project key, e.g. YOUR-PROJECT"
+            },
+            "issueType": {
+              "type": "string",
+              "enum": [
+                "Story",
+                "Task",
+                "Bug"
+              ],
+              "description": "Issue type"
+            },
+            "summary": {
+              "type": "string",
+              "description": "Issue summary/title"
+            },
+            "description": {
+              "type": "string",
+              "description": "Issue description"
+            },
+            "labels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Labels to apply, e.g. my-label"
+            },
+            "fixVersions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Fix version names"
+            },
+            "assignee": {
+              "type": "string",
+              "description": "Assignee username, or 'self' for current user"
+            }
+          },
+          "required": [
+            "projectKey",
+            "issueType",
+            "summary"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_jira_create_subtask",
+        "displayName": "Jira: Create Subtask",
+        "toolReferenceName": "nexus_jira_create_subtask",
+        "canBeReferencedInPrompt": true,
+        "description": "Create a subtask under a parent Jira issue. Inherits fix versions from parent if not specified.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "parentKey": {
+              "type": "string",
+              "description": "Parent issue key, e.g. PROJ-123"
+            },
+            "summary": {
+              "type": "string",
+              "description": "Subtask summary"
+            },
+            "description": {
+              "type": "string",
+              "description": "Subtask description"
+            },
+            "labels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Labels, e.g. my-label"
+            },
+            "fixVersions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Fix versions (inherited from parent if omitted)"
+            },
+            "assignee": {
+              "type": "string",
+              "description": "Assignee username, or 'self' for current user"
+            }
+          },
+          "required": [
+            "parentKey",
+            "summary"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_jira_search",
+        "displayName": "Jira: Search (JQL)",
+        "toolReferenceName": "nexus_jira_search",
+        "canBeReferencedInPrompt": true,
+        "description": "Search Jira issues using JQL query. Returns matching issues with key, summary, status, and assignee.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "jql": {
+              "type": "string",
+              "description": "JQL query string, e.g. \"project = YOUR-PROJECT AND labels = my-label AND status = Open\""
+            },
+            "maxResults": {
+              "type": "number",
+              "description": "Maximum results to return (default 20)"
+            }
+          },
+          "required": [
+            "jql"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_jira_transition",
+        "displayName": "Jira: Transition Issue",
+        "toolReferenceName": "nexus_jira_transition",
+        "canBeReferencedInPrompt": true,
+        "description": "Move a Jira issue through its workflow (e.g. Open \u2192 In Progress \u2192 Resolved).",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "issueKey": {
+              "type": "string",
+              "description": "Issue key, e.g. PROJ-123"
+            },
+            "transitionName": {
+              "type": "string",
+              "description": "Target status name, e.g. 'In Progress', 'Resolved', 'Closed'"
+            }
+          },
+          "required": [
+            "issueKey",
+            "transitionName"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_jira_add_comment",
+        "displayName": "Jira: Add Comment",
+        "toolReferenceName": "nexus_jira_add_comment",
+        "canBeReferencedInPrompt": true,
+        "description": "Add a comment to a Jira issue.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "issueKey": {
+              "type": "string",
+              "description": "Issue key"
+            },
+            "body": {
+              "type": "string",
+              "description": "Comment body text"
+            }
+          },
+          "required": [
+            "issueKey",
+            "body"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_jira_update_fields",
+        "displayName": "Jira: Update Fields",
+        "toolReferenceName": "nexus_jira_update_fields",
+        "canBeReferencedInPrompt": true,
+        "description": "Update fields on a Jira issue (labels, fix versions, assignee, priority, summary, description, time estimates).",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "issueKey": {
+              "type": "string",
+              "description": "Issue key"
+            },
+            "fields": {
+              "type": "object",
+              "description": "Fields to update. Keys: summary, description, labels, fixVersions, assignee, priority, originalEstimate, remainingEstimate",
+              "properties": {
+                "summary": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "labels": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "fixVersions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "assignee": {
+                  "type": "string"
+                },
+                "priority": {
+                  "type": "string"
+                },
+                "originalEstimate": {
+                  "type": "string",
+                  "description": "Original estimate in Jira duration format, e.g. '2h', '1d 4h'"
+                },
+                "remainingEstimate": {
+                  "type": "string",
+                  "description": "Remaining estimate in Jira duration format, e.g. '2h', '30m'"
+                }
+              }
+            }
+          },
+          "required": [
+            "issueKey",
+            "fields"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_jira_log_work",
+        "displayName": "Jira: Log Work",
+        "toolReferenceName": "nexus_jira_log_work",
+        "canBeReferencedInPrompt": true,
+        "description": "Log time spent working on a Jira issue (adds a worklog entry).",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "issueKey": {
+              "type": "string",
+              "description": "Issue key, e.g. PROJ-123"
+            },
+            "timeSpent": {
+              "type": "string",
+              "description": "Time spent in Jira duration format, e.g. '2h', '1h 30m'"
+            },
+            "started": {
+              "type": "string",
+              "description": "ISO 8601 datetime when work started, e.g. '2026-06-28T09:00:00.000+0000'. Defaults to now if omitted."
+            }
+          },
+          "required": [
+            "issueKey",
+            "timeSpent"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_jira_link_issues",
+        "displayName": "Jira: Link Issues",
+        "toolReferenceName": "nexus_jira_link_issues",
+        "canBeReferencedInPrompt": true,
+        "description": "Create a link between two Jira issues (e.g. blocks, relates to, is caused by).",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "linkType": {
+              "type": "string",
+              "description": "Link type name: 'blocks', 'is blocked by', 'relates to', 'is caused by', 'causes', 'duplicates'"
+            },
+            "inwardKey": {
+              "type": "string",
+              "description": "The inward issue key (the issue that is blocked/caused/etc.)"
+            },
+            "outwardKey": {
+              "type": "string",
+              "description": "The outward issue key (the issue that blocks/causes/etc.)"
+            }
+          },
+          "required": [
+            "linkType",
+            "inwardKey",
+            "outwardKey"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_jira_list_subtasks",
+        "displayName": "Jira: List Subtasks",
+        "toolReferenceName": "nexus_jira_list_subtasks",
+        "canBeReferencedInPrompt": true,
+        "description": "List all subtasks of a parent Jira issue with their key, summary, status, and assignee.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "parentKey": {
+              "type": "string",
+              "description": "Parent issue key, e.g. PROJ-123"
+            }
+          },
+          "required": [
+            "parentKey"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_jira_assign",
+        "displayName": "Jira: Assign Issue",
+        "toolReferenceName": "nexus_jira_assign",
+        "canBeReferencedInPrompt": true,
+        "description": "Assign a Jira issue to a user. Use 'self' to assign to yourself.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "issueKey": {
+              "type": "string",
+              "description": "Issue key"
+            },
+            "assignee": {
+              "type": "string",
+              "description": "Username or 'self'"
+            }
+          },
+          "required": [
+            "issueKey",
+            "assignee"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_bb_list_prs",
+        "displayName": "Bitbucket: List PRs",
+        "toolReferenceName": "nexus_bb_list_prs",
+        "canBeReferencedInPrompt": true,
+        "description": "List pull requests. Filter by state (OPEN/MERGED/DECLINED) and role (mine/reviewing/all).",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "MERGED",
+                "DECLINED"
+              ],
+              "description": "PR state filter (default OPEN)"
+            },
+            "filter": {
+              "type": "string",
+              "enum": [
+                "all",
+                "mine",
+                "reviewing"
+              ],
+              "description": "Role filter (default all)"
+            },
+            "limit": {
+              "type": "number",
+              "description": "Max results (default 25)"
+            }
+          }
+        }
+      },
+      {
+        "name": "devnexus_bb_get_pr",
+        "displayName": "Bitbucket: Get PR Details",
+        "toolReferenceName": "nexus_bb_get_pr",
+        "canBeReferencedInPrompt": true,
+        "description": "Get full details of a pull request including title, description, reviewers, and status.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prId": {
+              "type": "number",
+              "description": "Pull request ID number"
+            }
+          },
+          "required": [
+            "prId"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_bb_create_pr",
+        "displayName": "Bitbucket: Create PR",
+        "toolReferenceName": "nexus_bb_create_pr",
+        "canBeReferencedInPrompt": true,
+        "description": "Create a new pull request from a source branch to a target branch.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "PR title"
+            },
+            "description": {
+              "type": "string",
+              "description": "PR description"
+            },
+            "fromBranch": {
+              "type": "string",
+              "description": "Source branch name"
+            },
+            "toBranch": {
+              "type": "string",
+              "description": "Target branch name (default 'develop')"
+            },
+            "reviewers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Reviewer usernames to add"
+            }
+          },
+          "required": [
+            "title",
+            "fromBranch"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_bb_merge_pr",
+        "displayName": "Bitbucket: Merge PR",
+        "toolReferenceName": "nexus_bb_merge_pr",
+        "canBeReferencedInPrompt": true,
+        "description": "Merge a pull request.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prId": {
+              "type": "number",
+              "description": "Pull request ID"
+            }
+          },
+          "required": [
+            "prId"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_bb_get_changes",
+        "displayName": "Bitbucket: Get Changed Files",
+        "toolReferenceName": "nexus_bb_get_changes",
+        "canBeReferencedInPrompt": true,
+        "description": "List all changed files in a pull request with their change type (ADD/MODIFY/DELETE).",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prId": {
+              "type": "number",
+              "description": "Pull request ID"
+            }
+          },
+          "required": [
+            "prId"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_bb_get_diff",
+        "displayName": "Bitbucket: Get File Diff",
+        "toolReferenceName": "nexus_bb_get_diff",
+        "canBeReferencedInPrompt": true,
+        "description": "Get the diff of a specific file in a pull request.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prId": {
+              "type": "number",
+              "description": "Pull request ID"
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Path to the file within the repo"
+            },
+            "contextLines": {
+              "type": "number",
+              "description": "Lines of context around changes (default 5)"
+            }
+          },
+          "required": [
+            "prId",
+            "filePath"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_bb_add_comment",
+        "displayName": "Bitbucket: Add Comment",
+        "toolReferenceName": "nexus_bb_add_comment",
+        "canBeReferencedInPrompt": true,
+        "description": "Add a general or inline comment to a pull request.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prId": {
+              "type": "number",
+              "description": "Pull request ID"
+            },
+            "text": {
+              "type": "string",
+              "description": "Comment text"
+            },
+            "filePath": {
+              "type": "string",
+              "description": "File path for inline comment (omit for general comment)"
+            },
+            "line": {
+              "type": "number",
+              "description": "Line number for inline comment"
+            },
+            "lineType": {
+              "type": "string",
+              "enum": [
+                "ADDED",
+                "REMOVED",
+                "CONTEXT"
+              ],
+              "description": "Line type (default ADDED)"
+            },
+            "severity": {
+              "type": "string",
+              "enum": [
+                "NORMAL",
+                "BLOCKER"
+              ],
+              "description": "Comment severity (optional)."
+            }
+          },
+          "required": [
+            "prId",
+            "text"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_bb_list_comments",
+        "displayName": "Bitbucket: List PR Comments",
+        "toolReferenceName": "nexus_bb_list_comments",
+        "canBeReferencedInPrompt": true,
+        "description": "List all comments on a pull request, showing author, date, text, and file location.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prId": {
+              "type": "number",
+              "description": "Pull request ID"
+            }
+          },
+          "required": [
+            "prId"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_bb_add_reviewer",
+        "displayName": "Bitbucket: Add Reviewer",
+        "toolReferenceName": "nexus_bb_add_reviewer",
+        "canBeReferencedInPrompt": true,
+        "description": "Add a reviewer to a pull request.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prId": {
+              "type": "number",
+              "description": "Pull request ID"
+            },
+            "username": {
+              "type": "string",
+              "description": "Reviewer username"
+            }
+          },
+          "required": [
+            "prId",
+            "username"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_bb_remove_reviewer",
+        "displayName": "Bitbucket: Remove Reviewer",
+        "toolReferenceName": "nexus_bb_remove_reviewer",
+        "canBeReferencedInPrompt": true,
+        "description": "Remove a reviewer from a pull request.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prId": {
+              "type": "number",
+              "description": "Pull request ID"
+            },
+            "username": {
+              "type": "string",
+              "description": "Reviewer username to remove"
+            }
+          },
+          "required": [
+            "prId",
+            "username"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_bb_approve_pr",
+        "displayName": "Bitbucket: Approve PR",
+        "toolReferenceName": "nexus_bb_approve_pr",
+        "canBeReferencedInPrompt": true,
+        "description": "Approve a pull request.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prId": {
+              "type": "number",
+              "description": "Pull request ID"
+            }
+          },
+          "required": [
+            "prId"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_bb_decline_pr",
+        "displayName": "Bitbucket: Decline PR",
+        "toolReferenceName": "nexus_bb_decline_pr",
+        "canBeReferencedInPrompt": true,
+        "description": "Decline a pull request.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prId": {
+              "type": "number",
+              "description": "Pull request ID"
+            }
+          },
+          "required": [
+            "prId"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_bb_needs_work",
+        "displayName": "Bitbucket: Mark Needs Work",
+        "toolReferenceName": "nexus_bb_needs_work",
+        "canBeReferencedInPrompt": true,
+        "description": "Mark a pull request as needs work for the current reviewer.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prId": {
+              "type": "number",
+              "description": "Pull request ID"
+            }
+          },
+          "required": [
+            "prId"
+          ]
+        }
+      },
+      {
+        "name": "devnexus_bb_create_branch",
+        "displayName": "Bitbucket: Create Branch",
+        "toolReferenceName": "nexus_bb_create_branch",
+        "canBeReferencedInPrompt": true,
+        "description": "Create a new branch in the repository.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "branchName": {
+              "type": "string",
+              "description": "New branch name"
+            },
+            "startPoint": {
+              "type": "string",
+              "description": "Base branch or commit to branch from (default 'develop')"
+            }
+          },
+          "required": [
+            "branchName"
+          ]
+        }
+      }
+    ],
+    "configuration": {
+      "title": "DevNexus",
+      "properties": {
+        "devnexus.jira.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Jira Server base URL"
+        },
+        "devnexus.jira.defaultProject": {
+          "type": "string",
+          "default": "",
+          "description": "Default Jira project key"
+        },
+        "devnexus.bitbucket.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Bitbucket Server base URL"
+        },
+        "devnexus.bitbucket.project": {
+          "type": "string",
+          "default": "",
+          "description": "Bitbucket project key"
+        },
+        "devnexus.bitbucket.repo": {
+          "type": "string",
+          "default": "",
+          "description": "Bitbucket repository slug"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "devnexus",
+          "title": "DevNexus",
+          "icon": "$(tools)"
+        }
+      ]
+    },
+    "views": {
+      "devnexus": [
+        {
+          "id": "devnexusJiraIssues",
+          "name": "My Jira Issues"
+        },
+        {
+          "id": "devnexusBBPullRequests",
+          "name": "Pull Requests"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "devnexusJiraIssues",
+        "contents": "Set up Jira credentials to see your issues.\n[Set Jira Credentials](command:devnexus.setJiraCredentials)",
+        "when": "!devnexus.jiraAuthenticated"
+      },
+      {
+        "view": "devnexusBBPullRequests",
+        "contents": "Set up Bitbucket token to see pull requests.\n[Set Bitbucket Token](command:devnexus.setBitbucketToken)",
+        "when": "!devnexus.bbAuthenticated"
+      }
+    ],
+    "commands": [
+      {
+        "command": "devnexus.setJiraCredentials",
+        "title": "Set Jira Credentials",
+        "category": "DevNexus"
+      },
+      {
+        "command": "devnexus.setBitbucketToken",
+        "title": "Set Bitbucket Token",
+        "category": "DevNexus"
+      },
+      {
+        "command": "devnexus.refreshJira",
+        "title": "Refresh Jira Issues",
+        "category": "DevNexus",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "devnexus.refreshBB",
+        "title": "Refresh Pull Requests",
+        "category": "DevNexus",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "devnexus.openInBrowser",
+        "title": "Open in Browser",
+        "category": "DevNexus",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "devnexus.createEnvFile",
+        "title": "Create Credentials File (~/.devnexus-env)",
+        "category": "DevNexus"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "devnexus.refreshJira",
+          "when": "view == devnexusJiraIssues",
+          "group": "navigation"
+        },
+        {
+          "command": "devnexus.refreshBB",
+          "when": "view == devnexusBBPullRequests",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "devnexus.openInBrowser",
+          "when": "view == devnexusJiraIssues || view == devnexusBBPullRequests"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.95.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  }
+}
