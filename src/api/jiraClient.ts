@@ -1,4 +1,7 @@
-import { JiraCredentials } from '../auth/authManager';
+export interface JiraCredentials {
+    username: string;
+    pat: string;
+}
 
 const SUBTASK_TYPE_ID = '5';
 

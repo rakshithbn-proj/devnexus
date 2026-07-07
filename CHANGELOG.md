@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.0.0] — 2026-07-07
+
+### Changed
+- **Complete rewrite as a standalone npm MCP server** — no longer a VS Code extension
+- Distributed via npm: `npm install -g devnexus-mcp`
+- Works with any MCP-compatible client: VS Code Copilot, Claude Desktop, Cursor, and others
+- Credentials moved from VS Code SecretStorage to `~/.devnexus/config.json`
+- Configuration moved from VS Code settings (`devnexus.*`) to the same config file
+- No VS Code dependency — runs as a plain Node.js process over stdio
+
+### Added
+- `prepublishOnly` build step for clean npm releases
+- `engines` field enforcing Node.js 20+
+- Global `devnexus` CLI binary registered via `bin`
+
+---
+
+> The entries below describe the legacy **VS Code extension** version (v1.x). That version has been superseded by the standalone MCP server above.
+
 ## [1.1.0] — 2026-06-28
 
 ### Added

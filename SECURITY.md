@@ -10,9 +10,9 @@ You will receive a response within 72 hours. If the issue is confirmed, a fix wi
 
 ## Scope
 
-- Credential leakage (PATs exposed in logs, output channels, or stored insecurely)
+- Credential leakage (PATs exposed in logs or written to disk insecurely)
 - Authentication bypass
-- Malicious extension behaviour
+- Malicious server behaviour (e.g. exfiltrating credentials or request data)
 
 ## Out of scope
 
