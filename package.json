@@ -1791,7 +1791,7 @@
     "package": "vsce package --allow-missing-repository"
   },
   "devDependencies": {
-    "@types/node": "^26.1.0",
+    "@types/node": "^26.1.1",
     "@types/vscode": "^1.95.0",
     "@vscode/vsce": "^3.9.2",
     "typescript": "^5.3.0"
