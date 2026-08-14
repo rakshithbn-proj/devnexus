@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.0.4] — 2026-08-14
+
+### Fixed
+- `devnexus_jira_get_issue` now returns all available fields — description, reporter, resolution, components, affects versions, parent, environment, security level, time tracking, votes, watches, comment count, attachments, and issue links were previously omitted from the response
+- Custom fields are now rendered dynamically using human-readable names from Jira's `?expand=names` response; any field returned by the API that has a non-null value appears under an **Additional Fields** section
+
+## [2.0.3] — 2026-07-07
+
+### Added
+- `devnexus-mcp` bin alias — enables `npx devnexus-mcp` for use with VS Code "MCP: Add Server" without a global install
+
+## [2.0.2] — 2026-07-07
+
+### Changed
+- VS Code MCP registration now happens automatically on `npm install -g` via `postinstall` hook — no manual setup command required
+
+## [2.0.1] — 2026-07-07
+
+### Added
+- `devnexus-setup` CLI command — auto-writes VS Code `mcp.json` with the correct absolute path after global install; no manual config editing required
+
 ## [2.0.0] — 2026-07-07
 
 ### Changed

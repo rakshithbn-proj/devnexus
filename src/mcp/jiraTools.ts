@@ -11,18 +11,18 @@ const ERR = 'Jira credentials not configured. Check ~/.devnexus-env.';
 export function registerJiraTools(server: Srv, client: JiraClient, cfg: McpConfig): void {
 
     // ── Get Issue ────────────────────────────────────────────────
-    server.tool('devnexus_jira_get_issue', 'Fetch a Jira issue details: summary, status, labels, fix versions, assignee, subtasks.',
+    server.tool('devnexus_jira_get_issue', 'Fetch all available fields of a Jira issue.',
         { issueKey: z.string().describe('Jira issue key, e.g. PROJ-123') },
         async ({ issueKey }) => {
             const issue = await client.getIssue(issueKey);
-            const subtasks = issue.fields.subtasks?.map((s: any) =>
-                `  - ${s.key}: ${s.fields.summary} [${s.fields.status.name}]${s.fields.assignee ? ` (${s.fields.assignee.displayName})` : ''}`
-            ).join('\n') || '  (none)';
-
             const fieldNames: Record<string, string> = issue.names || {};
-            const SYSTEM_DATE_FIELDS = new Set(['created', 'updated', 'resolutiondate', 'lastViewed', 'statuscategorychangedate', 'duedate']);
             const flds = issue.fields as Record<string, unknown>;
 
+            const fmtDate = (val: unknown): string =>
+                typeof val === 'string' && val ? val.substring(0, 10) : '—';
+
+            // Locate the start-date custom field
+            const SYSTEM_DATE_FIELDS = new Set(['created', 'updated', 'resolutiondate', 'lastViewed', 'statuscategorychangedate', 'duedate']);
             let startFieldId: string | undefined = cfg.jiraStartDateFieldId && flds[cfg.jiraStartDateFieldId] !== undefined
                 ? cfg.jiraStartDateFieldId : undefined;
             if (!startFieldId) {
@@ -40,25 +40,109 @@ export function registerJiraTools(server: Srv, client: JiraClient, cfg: McpConfi
                 }
             }
 
-            const fmtDate = (val: unknown): string =>
-                typeof val === 'string' && val ? val.substring(0, 10) : '—';
+            // Structured fields rendered explicitly
+            const parent    = flds.parent    as any;
+            const reporter  = flds.reporter  as any;
+            const resolution= flds.resolution as any;
+            const components= flds.components as any[] | undefined;
+            const versions  = flds.versions  as any[] | undefined;
+            const comment   = flds.comment   as any;
+            const attachment= flds.attachment as any[] | undefined;
+            const votes     = flds.votes     as any;
+            const watches   = flds.watches   as any;
+            const timetrack = flds.timetracking as any;
+            const security  = flds.security  as any;
+            const environment = flds.environment as string | null | undefined;
 
-            const startDate = startFieldId ? fmtDate(flds[startFieldId]) : '—';
-            const dueDate = fmtDate(flds.duedate);
+            const subtasks = issue.fields.subtasks?.map((s: any) =>
+                `  - ${s.key}: ${s.fields.summary} [${s.fields.status.name}]${s.fields.assignee ? ` (${s.fields.assignee.displayName})` : ''}`
+            ).join('\n') || '  (none)';
 
-            return ok([
-                `**${issue.key}** — ${issue.fields.summary}`,
-                `Status: ${issue.fields.status.name}`,
+            const issuelinks = issue.fields.issuelinks?.map((link: any) => {
+                if (link.outwardIssue) return `  - ${link.type.outward} ${link.outwardIssue.key}: ${link.outwardIssue.fields.summary} [${link.outwardIssue.fields.status.name}]`;
+                if (link.inwardIssue)  return `  - ${link.type.inward} ${link.inwardIssue.key}: ${link.inwardIssue.fields.summary} [${link.inwardIssue.fields.status.name}]`;
+                return null;
+            }).filter(Boolean).join('\n') || '  (none)';
+
+            // Fields already rendered above — skip in the dynamic section
+            const HANDLED = new Set([
+                'summary', 'description', 'status', 'issuetype', 'assignee', 'reporter',
+                'priority', 'labels', 'fixVersions', 'versions', 'project', 'duedate',
+                'subtasks', 'issuelinks', 'parent', 'created', 'updated', 'resolution',
+                'resolutiondate', 'components', 'comment', 'worklog', 'attachment',
+                'votes', 'watches', 'lastViewed', 'statuscategorychangedate',
+                'timetracking', 'aggregatetimeoriginalestimate', 'aggregatetimespent',
+                'aggregatetimeestimate', 'aggregateprogress', 'progress',
+                'environment', 'security',
+                ...(startFieldId ? [startFieldId] : []),
+            ]);
+
+            // Generic formatter for unknown/custom fields
+            const formatValue = (val: unknown): string | null => {
+                if (val === null || val === undefined) { return null; }
+                if (typeof val === 'string') { return val.trim() || null; }
+                if (typeof val === 'number' || typeof val === 'boolean') { return String(val); }
+                if (Array.isArray(val)) {
+                    if (!val.length) { return null; }
+                    return val.map(item => {
+                        if (!item || typeof item !== 'object') { return String(item); }
+                        const o = item as Record<string, unknown>;
+                        return String(o.name ?? o.displayName ?? o.value ?? o.key ?? JSON.stringify(item));
+                    }).join(', ');
+                }
+                if (typeof val === 'object') {
+                    const o = val as Record<string, unknown>;
+                    const simple = o.name ?? o.displayName ?? o.value ?? o.key;
+                    if (simple !== undefined) { return String(simple); }
+                    const json = JSON.stringify(val);
+                    return json === '{}' ? null : json;
+                }
+                return null;
+            };
+
+            const dynamicLines: string[] = [];
+            for (const [id, val] of Object.entries(flds)) {
+                if (HANDLED.has(id)) { continue; }
+                const formatted = formatValue(val);
+                if (formatted !== null) {
+                    dynamicLines.push(`${fieldNames[id] || id}: ${formatted}`);
+                }
+            }
+
+            const lines: string[] = [
+                `**${issue.key}**`,
+                `Summary: ${issue.fields.summary}`,
                 `Type: ${issue.fields.issuetype.name}`,
+                `Status: ${issue.fields.status.name}`,
+                `Priority: ${issue.fields.priority?.name || '—'}`,
+                `Resolution: ${resolution?.name || 'Unresolved'}`,
+                ...(parent ? [`Parent: ${parent.key} — ${parent.fields?.summary || ''}`] : []),
+                `Reporter: ${reporter?.displayName || '—'}`,
                 `Assignee: ${issue.fields.assignee?.displayName || 'Unassigned'}`,
-                `Start Date: ${startDate}`,
-                `Due Date: ${dueDate}`,
+                `Security Level: ${security?.name || '—'}`,
+                `Created: ${fmtDate(flds.created)}`,
+                `Updated: ${fmtDate(flds.updated)}`,
+                `Resolution Date: ${fmtDate(flds.resolutiondate)}`,
+                `Start Date: ${startFieldId ? fmtDate(flds[startFieldId]) : '—'}`,
+                `Due Date: ${fmtDate(flds.duedate)}`,
                 `Labels: ${issue.fields.labels.join(', ') || 'none'}`,
+                `Components: ${components?.map((c: any) => c.name).join(', ') || 'none'}`,
                 `Fix Versions: ${issue.fields.fixVersions.map((v: any) => v.name).join(', ') || 'none'}`,
-                `Priority: ${issue.fields.priority?.name || 'none'}`,
+                `Affects Versions: ${versions?.map((v: any) => v.name).join(', ') || 'none'}`,
+                `Environment: ${environment || '—'}`,
+                `Time Tracking: original=${timetrack?.originalEstimate || '—'}, remaining=${timetrack?.remainingEstimate || '—'}, spent=${timetrack?.timeSpent || '—'}`,
+                `Votes: ${votes?.votes ?? '—'}`,
+                `Watches: ${watches?.watchCount ?? '—'}`,
+                `Comments: ${comment?.total ?? 0} (use devnexus_jira_list_comments for full content)`,
+                `Attachments: ${attachment?.length ? attachment.map((a: any) => a.filename).join(', ') : 'none'}`,
+                `Description:\n${issue.fields.description || '(none)'}`,
                 `Subtasks:\n${subtasks}`,
+                `Issue Links:\n${issuelinks}`,
+                ...(dynamicLines.length ? ['\n--- Additional Fields ---', ...dynamicLines] : []),
                 `URL: ${client.getBrowseUrl(issue.key)}`,
-            ].join('\n'));
+            ];
+
+            return ok(lines.join('\n'));
         }
     );
 

@@ -1,7 +1,7 @@
 {
   "name": "devnexus-mcp",
   "description": "MCP server for Jira and Bitbucket Server — natural language DevOps operations.",
-  "version": "2.0.0",
+  "version": "2.0.4",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -24,10 +24,13 @@
     "claude"
   ],
   "bin": {
-    "devnexus": "./out/mcp/server.js"
+    "devnexus": "out/mcp/server.js",
+    "devnexus-mcp": "out/mcp/server.js",
+    "devnexus-setup": "out/mcp/setup.js"
   },
   "scripts": {
     "build": "tsc -p ./",
+    "postinstall": "node out/mcp/setup.js",
     "prepublishOnly": "npm run build",
     "start": "node out/mcp/server.js",
     "dev": "npx tsx src/mcp/server.ts"

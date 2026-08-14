@@ -9,7 +9,7 @@ DevNexus is a standalone **MCP server** that exposes Jira Server and Bitbucket S
 
 ## Tools
 
-**45 Jira tools** � get/create/clone issues and subtasks, search with JQL, transition status, add/update/delete comments, update fields, log work, link issues, manage sprints/boards/epics, versions, components, watchers, votes, and changelog.
+**45 Jira tools** — get issues (all fields: description, reporter, components, links, time tracking, custom fields, and more), create/clone issues and subtasks, search with JQL, transition status, add/update/delete comments, update fields, log work, link issues, manage sprints/boards/epics, versions, components, watchers, votes, and changelog.
 
 **40 Bitbucket tools** � list/get/create/merge/decline PRs, review actions (approve, needs-work, reopen), inline comments, diffs, PR tasks, reviewers, branches, tags, build statuses, file browsing, compare refs, commit history, and merge checks.
 
@@ -24,9 +24,24 @@ DevNexus is a standalone **MCP server** that exposes Jira Server and Bitbucket S
 
 ### 1. Install
 
+#### VS Code (recommended)
+
+`Ctrl+Shift+P` → **MCP: Add Server** → **stdio**, then enter:
+
+| Field | Value |
+|---|---|
+| Command | `npx` |
+| Arguments | `-y devnexus-mcp` |
+
+No global install needed — VS Code runs it via `npx` on demand.
+
+#### Global install (all clients)
+
 ```bash
 npm install -g devnexus-mcp
 ```
+
+VS Code is configured automatically during install. Reload VS Code (`Ctrl+Shift+P` → **Developer: Reload Window**) to activate.
 
 ### 2. Configure credentials
 
@@ -55,30 +70,16 @@ On first run the server creates a template at `~/.devnexus/config.json`. You can
 
 ### 3. Wire up your MCP client
 
-#### VS Code (GitHub Copilot)
+**VS Code** — use **MCP: Add Server** with `npx` / `-y devnexus-mcp` as shown above, or run `npm install -g devnexus-mcp` for automatic setup.
 
-Add once to your **user** `settings.json` (`Ctrl+Shift+P` → Open User Settings JSON):
-
-```json
-"mcp": {
-  "servers": {
-    "devnexus": {
-      "type": "stdio",
-      "command": "devnexus"
-    }
-  }
-}
-```
-
-#### Claude Desktop
-
-Add to your `claude_desktop_config.json` (`%APPDATA%\Claude\` on Windows, `~/Library/Application Support/Claude/` on macOS):
+**Claude Desktop** — add to `claude_desktop_config.json` (`%APPDATA%\Claude\` on Windows, `~/Library/Application Support/Claude/` on macOS):
 
 ```json
 {
   "mcpServers": {
     "devnexus": {
-      "command": "devnexus"
+      "command": "npx",
+      "args": ["-y", "devnexus-mcp"]
     }
   }
 }

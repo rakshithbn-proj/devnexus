@@ -18,7 +18,7 @@ async function main(): Promise<void> {
 
     const server = new McpServer({
         name: 'devnexus',
-        version: '1.1.0',
+        version: '2.0.4',
     });
 
     registerJiraTools(server, jira, cfg);
